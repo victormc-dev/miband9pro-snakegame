@@ -1,0 +1,188 @@
+<template>
+  <div class="settings-container">
+    <div class="header">
+      <text class="back-button" onclick="goBack">‹</text>
+      <text class="page-title">设置</text>
+    </div>
+    
+    <div class="settings-content">
+      <div class="setting-item">
+        <text class="setting-label">游戏速度</text>
+        <div class="control-group">
+          <input class="control-button" type="button" value="-" onclick="decreaseSpeed" />
+          <text class="value-text">{{ getSpeedText() }}</text>
+          <input class="control-button" type="button" value="+" onclick="increaseSpeed" />
+        </div>
+      </div>
+      
+      <div class="setting-item">
+        <text class="setting-label">食物大小</text>
+        <div class="control-group">
+          <input class="control-button" type="button" value="-" onclick="decreaseFoodSize" />
+          <text class="value-text">{{ getFoodSizeText() }}</text>
+          <input class="control-button" type="button" value="+" onclick="increaseFoodSize" />
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from "@system.router"
+import storage from "@system.storage"
+
+export default {
+  private: {
+    speedLevel: 3,
+    foodSizeLevel: 2,
+    speeds: [200, 170, 140, 110, 80],
+    foodSizes: [16, 20, 24]
+  },
+
+  onInit() {
+    this.loadSettings()
+  },
+
+  loadSettings() {
+    storage.get({
+      key: "snake_speed",
+      success: (data) => {
+        if (data) {
+          this.speedLevel = parseInt(data)
+        }
+      }
+    })
+    storage.get({
+      key: "snake_food_size",
+      success: (data) => {
+        if (data) {
+          this.foodSizeLevel = parseInt(data)
+        }
+      }
+    })
+  },
+
+  saveSettings() {
+    storage.set({
+      key: "snake_speed",
+      value: this.speedLevel.toString()
+    })
+    storage.set({
+      key: "snake_food_size",
+      value: this.foodSizeLevel.toString()
+    })
+  },
+
+  getSpeedText() {
+    const texts = ["很慢", "慢", "正常", "快", "很快"]
+    return texts[this.speedLevel - 1]
+  },
+
+  getFoodSizeText() {
+    const texts = ["小", "中", "大"]
+    return texts[this.foodSizeLevel - 1]
+  },
+
+  increaseSpeed() {
+    if (this.speedLevel < 5) {
+      this.speedLevel++
+      this.saveSettings()
+    }
+  },
+
+  decreaseSpeed() {
+    if (this.speedLevel > 1) {
+      this.speedLevel--
+      this.saveSettings()
+    }
+  },
+
+  increaseFoodSize() {
+    if (this.foodSizeLevel < 3) {
+      this.foodSizeLevel++
+      this.saveSettings()
+    }
+  },
+
+  decreaseFoodSize() {
+    if (this.foodSizeLevel > 1) {
+      this.foodSizeLevel--
+      this.saveSettings()
+    }
+  },
+
+  goBack() {
+    router.back()
+  }
+}
+</script>
+
+<style>
+.settings-container {
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  background-color: #1a1a1a;
+}
+
+.header {
+  width: 100%;
+  height: 60px;
+  flex-direction: row;
+  align-items: center;
+  padding-left: 20px;
+  padding-right: 20px;
+  background-color: #2a2a2a;
+}
+
+.back-button {
+  font-size: 36px;
+  color: #ffffff;
+  margin-right: 20px;
+}
+
+.page-title {
+  font-size: 24px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.settings-content {
+  flex: 1;
+  flex-direction: column;
+  padding: 20px;
+}
+
+.setting-item {
+  margin-bottom: 40px;
+}
+
+.setting-label {
+  font-size: 30px;
+  color: #ffffff;
+  margin-bottom: 15px;
+}
+
+.control-group {
+  width: 60%;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.control-button {
+  width: 36px;
+  height: 40px;
+  border-radius: 20px;
+  background-color: #09ba07;
+  font-size: 20px;
+  color: #ffffff;
+  border: none;
+}
+
+.value-text {
+  font-size: 40px;
+  color: #44ff44;
+  text-align: center;
+}
+</style>

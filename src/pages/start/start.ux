@@ -1,0 +1,70 @@
+<template>
+  <div class="start-container">
+    <text class="title">贪吃蛇</text>
+    <text class="subtitle">Snake Game</text>
+    
+    <div class="button-group">
+      <input class="button" type="button" value="开始游戏" onclick="startGame" />
+      <input class="button" type="button" value="设置" onclick="goToSettings" />
+    </div>
+  </div>
+</template>
+
+<script>
+import router from "@system.router"
+
+export default {
+  startGame() {
+    router.push({
+      uri: "/pages/index"
+    })
+  },
+
+  goToSettings() {
+    router.push({
+      uri: "/pages/settings"
+    })
+  }
+}
+</script>
+
+<style>
+.start-container {
+  width: 336px;
+  height: 480px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #1a1a1a;
+}
+
+.title {
+  font-size: 42px;
+  font-weight: bold;
+  color: #44ff44;
+  margin-bottom: 8px;
+}
+
+.subtitle {
+  font-size: 20px;
+  color: #888888;
+  margin-bottom: 50px;
+}
+
+.button-group {
+  width: 200px;
+  flex-direction: column;
+  align-items: center;
+}
+
+.button {
+  width: 200px;
+  height: 45px;
+  margin-bottom: 18px;
+  border-radius: 8px;
+  background-color: #09ba07;
+  font-size: 22px;
+  color: #ffffff;
+  border: none;
+}
+</style>

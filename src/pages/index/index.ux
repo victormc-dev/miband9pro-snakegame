@@ -1,0 +1,401 @@
+<template>
+  <div class="game-container">
+    <div class="header">
+      <text class="back-button" onclick="goBack">‹</text>
+      <text class="score">得分: {{ score }}</text>
+    </div>
+    
+    <div class="game-board" ontouchstart="onTouchStart" ontouchend="onTouchEnd">
+      <div class="snake" for="{{ snake }}" style="{{ getSnakeStyle($item, $idx) }}"></div>
+      <div class="food" style="{{ getFoodStyle() }}"></div>
+    </div>
+    
+    <text class="hint" if="{{ !gameStarted }}">滑动屏幕开始游戏</text>
+    <text class="game-over" if="{{ gameOver }}">游戏结束！点击重新开始</text>
+  </div>
+</template>
+
+<script>
+import router from "@system.router"
+import storage from "@system.storage"
+
+export default {
+  private: {
+    score: 0,
+    gameStarted: false,
+    gameOver: false,
+    gridSize: 20,
+    snake: [],
+    direction: { x: 1, y: 0 },
+    nextDirection: { x: 1, y: 0 },
+    food: { x: 0, y: 0 },
+    gameLoop: null,
+    // 使用固定尺寸适配小米手环屏幕
+    canvasWidth: 330,
+    canvasHeight: 390,
+    touchStartX: 0,
+    touchStartY: 0,
+    // 设置相关
+    speedLevel: 3,
+    foodSizeLevel: 2,
+    speeds: [200, 170, 140, 110, 80],
+    foodSizes: [16, 20, 24]
+  },
+
+  onInit() {
+    console.log('页面初始化')
+    this.loadSettings()
+    // 只初始化数据
+    this.score = 0
+    this.gameStarted = false
+    this.gameOver = false
+    this.direction = { x: 1, y: 0 }
+    this.nextDirection = { x: 1, y: 0 }
+    
+    // 确保蛇的初始位置在有效范围内
+    const startX = Math.floor(this.canvasWidth / this.gridSize / 2)
+    const startY = Math.floor(this.canvasHeight / this.gridSize / 2)
+    
+    this.snake = [
+      { x: startX, y: startY },
+      { x: startX - 1, y: startY },
+      { x: startX - 2, y: startY }
+    ]
+    
+    console.log('游戏初始化，蛇的初始位置:', this.snake)
+  },
+
+  onReady() {
+    console.log('页面准备完成')
+    // 在 onReady 中生成食物
+    this.generateFood()
+  },
+
+  loadSettings() {
+    storage.get({
+      key: "snake_speed",
+      success: (data) => {
+        if (data) {
+          this.speedLevel = parseInt(data)
+          console.log('加载速度设置:', this.speedLevel)
+        }
+      }
+    })
+    storage.get({
+      key: "snake_food_size",
+      success: (data) => {
+        if (data) {
+          this.foodSizeLevel = parseInt(data)
+          this.gridSize = this.foodSizes[this.foodSizeLevel - 1]
+          console.log('加载食物大小设置:', this.foodSizeLevel, 'gridSize:', this.gridSize)
+        }
+      }
+    })
+  },
+
+  goBack() {
+    this.stopGame()
+    router.back()
+  },
+
+  // 获取蛇身每个节点的样式
+  getSnakeStyle(item, index) {
+    const x = item.x * this.gridSize
+    const y = item.y * this.gridSize
+    const size = this.gridSize
+    const isHead = index === 0
+    return `left: ${x}px; top: ${y}px; width: ${size}px; height: ${size}px; background-color: ${isHead ? '#44ff44' : '#22aa22'};`
+  },
+
+  // 获取食物的样式
+  getFoodStyle() {
+    const x = this.food.x * this.gridSize
+    const y = this.food.y * this.gridSize
+    const size = this.gridSize
+    return `left: ${x}px; top: ${y}px; width: ${size}px; height: ${size}px;`
+  },
+
+  initGame() {
+    this.score = 0
+    this.gameStarted = false
+    this.gameOver = false
+    this.direction = { x: 1, y: 0 }
+    this.nextDirection = { x: 1, y: 0 }
+    
+    // 确保蛇的初始位置在有效范围内
+    const startX = Math.floor(this.canvasWidth / this.gridSize / 2)
+    const startY = Math.floor(this.canvasHeight / this.gridSize / 2)
+    
+    this.snake = [
+      { x: startX, y: startY },
+      { x: startX - 1, y: startY },
+      { x: startX - 2, y: startY }
+    ]
+    
+    console.log('游戏初始化，蛇的初始位置:', this.snake)
+    this.generateFood()
+  },
+
+  startGame() {
+    if (this.gameStarted) {
+      console.log('游戏已经在运行中')
+      return
+    }
+    
+    if (this.gameLoop) {
+      console.log('清除旧的游戏循环')
+      clearInterval(this.gameLoop)
+    }
+    
+    this.gameStarted = true
+    const gameSpeed = this.speeds[this.speedLevel - 1]
+    console.log('游戏循环启动，速度:', gameSpeed, 'ms')
+    
+    this.gameLoop = setInterval(() => {
+      this.update()
+    }, gameSpeed)
+  },
+
+  stopGame() {
+    if (this.gameLoop) {
+      console.log('停止游戏循环')
+      clearInterval(this.gameLoop)
+      this.gameLoop = null
+    }
+  },
+
+  update() {
+    this.direction = { ...this.nextDirection }
+    
+    const head = { ...this.snake[0] }
+    head.x += this.direction.x
+    head.y += this.direction.y
+
+    // 碰撞检测 - 墙壁
+    const maxGridX = Math.floor(this.canvasWidth / this.gridSize)
+    const maxGridY = Math.floor(this.canvasHeight / this.gridSize)
+    
+    console.log(`蛇头位置: (${head.x}, ${head.y}), 网格大小: ${maxGridX}x${maxGridY}`)
+    
+    if (head.x < 0 || head.x >= maxGridX || head.y < 0 || head.y >= maxGridY) {
+      console.log('撞墙了！')
+      this.gameOver = true
+      this.stopGame()
+      return
+    }
+
+    // 碰撞检测 - 自身
+    for (let i = 0; i < this.snake.length; i++) {
+      if (head.x === this.snake[i].x && head.y === this.snake[i].y) {
+        console.log('撞到自己了！')
+        this.gameOver = true
+        this.stopGame()
+        return
+      }
+    }
+
+    this.snake.unshift(head)
+
+    // 检测是否吃到食物
+    if (head.x === this.food.x && head.y === this.food.y) {
+      this.score += 10
+      console.log('吃到食物！分数:', this.score)
+      this.generateFood()
+    } else {
+      this.snake.pop()
+    }
+  },
+
+  generateFood() {
+    // 计算实际的有效网格数量
+    const maxGridX = Math.floor(this.canvasWidth / this.gridSize)
+    const maxGridY = Math.floor(this.canvasHeight / this.gridSize)
+    
+    console.log(`生成食物 - 画布尺寸: ${this.canvasWidth}x${this.canvasHeight}, 网格大小: ${this.gridSize}, 有效网格: ${maxGridX}x${maxGridY}`)
+    
+    if (maxGridX <= 0 || maxGridY <= 0) {
+      console.error('Canvas尺寸或网格大小无效，无法生成食物')
+      return
+    }
+    
+    let validPosition = false
+    let attempts = 0
+    const maxAttempts = 200
+    
+    while (!validPosition && attempts < maxAttempts) {
+      attempts++
+      
+      // 在有效网格范围内随机生成
+      const randomX = Math.floor(Math.random() * maxGridX)
+      const randomY = Math.floor(Math.random() * maxGridY)
+      
+      // 验证坐标在有效范围内
+      if (randomX < 0 || randomX >= maxGridX || randomY < 0 || randomY >= maxGridY) {
+        console.warn(`生成的坐标超出范围: (${randomX}, ${randomY})`)
+        continue
+      }
+      
+      this.food = { x: randomX, y: randomY }
+      
+      // 检查是否与蛇身重叠
+      let overlapsWithSnake = false
+      for (let i = 0; i < this.snake.length; i++) {
+        if (this.food.x === this.snake[i].x && this.food.y === this.snake[i].y) {
+          overlapsWithSnake = true
+          break
+        }
+      }
+      
+      if (!overlapsWithSnake) {
+        validPosition = true
+        // 计算实际像素位置用于验证
+        const pixelX = this.food.x * this.gridSize
+        const pixelY = this.food.y * this.gridSize
+        console.log(`食物生成成功 - 网格坐标: (${this.food.x}, ${this.food.y}), 像素位置: (${pixelX}, ${pixelY}), 尝试次数: ${attempts}`)
+      }
+    }
+    
+    if (!validPosition) {
+      console.error(`无法找到有效的食物位置，已尝试 ${maxAttempts} 次`)
+      // 如果找不到有效位置，使用一个安全位置（比如画布中心）
+      const centerX = Math.floor(maxGridX / 2)
+      const centerY = Math.floor(maxGridY / 2)
+      this.food = { x: centerX, y: centerY }
+      console.log(`使用备用位置: (${this.food.x}, ${this.food.y})`)
+    }
+  },
+
+  onTouchStart(e) {
+    this.touchStartX = e.touches[0].clientX
+    this.touchStartY = e.touches[0].clientY
+    console.log(`触摸开始: (${this.touchStartX}, ${this.touchStartY})`)
+  },
+
+  onTouchEnd(e) {
+    if (this.gameOver) {
+      console.log('游戏结束，重新开始')
+      this.initGame()
+      return
+    }
+
+    const touchEndX = e.changedTouches[0].clientX
+    const touchEndY = e.changedTouches[0].clientY
+    
+    const deltaX = touchEndX - this.touchStartX
+    const deltaY = touchEndY - this.touchStartY
+    
+    console.log(`触摸结束: (${touchEndX}, ${touchEndY}), 偏移: (${deltaX}, ${deltaY})`)
+
+    // 只有当滑动距离超过阈值才响应
+    const minSwipeDistance = 30
+    if (Math.abs(deltaX) < minSwipeDistance && Math.abs(deltaY) < minSwipeDistance) {
+      console.log('滑动距离太短，忽略')
+      return
+    }
+
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      // 水平滑动
+      if (deltaX > 0 && this.direction.x !== -1) {
+        this.nextDirection = { x: 1, y: 0 }
+        console.log('向右滑动')
+      } else if (deltaX < 0 && this.direction.x !== 1) {
+        this.nextDirection = { x: -1, y: 0 }
+        console.log('向左滑动')
+      }
+    } else {
+      // 垂直滑动
+      if (deltaY > 0 && this.direction.y !== -1) {
+        this.nextDirection = { x: 0, y: 1 }
+        console.log('向下滑动')
+      } else if (deltaY < 0 && this.direction.y !== 1) {
+        this.nextDirection = { x: 0, y: -1 }
+        console.log('向上滑动')
+      }
+    }
+
+    if (!this.gameStarted) {
+      console.log('游戏开始！')
+      this.startGame()
+    }
+  },
+
+  onDestroy() {
+    this.stopGame()
+  }
+}
+</script>
+
+<style>
+.game-container {
+  width: 336px;
+  height: 480px;
+  flex-direction: column;
+  align-items: center;
+  background-color: #1a1a1a;
+}
+
+.header {
+  width: 100%;
+  height: 60px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding-left: 15px;
+  padding-right: 15px;
+  background-color: #2a2a2a;
+}
+
+.back-button {
+  font-size: 40px;
+  color: #ffffff;
+  width: 50px;
+  height: 50px;
+  line-height: 50px;
+  text-align: center;
+}
+
+.score {
+  flex: 1;
+  font-size: 24px;
+  font-weight: bold;
+  color: #ffffff;
+  text-align: center;
+}
+
+.game-board {
+  width: 330px;
+  height: 390px;
+  background-color: #000000;
+  border: 2px solid #333333;
+  border-radius: 8px;
+  position: relative;
+  margin-top: 5px;
+}
+
+.snake {
+  position: absolute;
+  border-radius: 2px;
+}
+
+.food {
+  position: absolute;
+  background-color: #ff4444;
+  border-radius: 50%;
+}
+
+.hint {
+  font-size: 20px;
+  color: #888888;
+  margin-top: 8px;
+  text-align: center;
+  width: 100%;
+}
+
+.game-over {
+  font-size: 24px;
+  color: #ff4444;
+  margin-top: 8px;
+  text-align: center;
+  width: 100%;
+}
+</style>
